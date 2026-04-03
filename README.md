@@ -80,7 +80,7 @@ python main.py
 | ☀️ Mediodía | 12:30 |
 | 🌙 Noche | 20:00 |
 
-Para cambiarlos, edita la lista `REMINDERS` en `main.py`:
+Para cambiarlos, edita la lista `REMINDERS` en `reminders.py`:
 
 ```python
 REMINDERS = [
@@ -108,7 +108,7 @@ main.py
 **Lógica de confirmación:**
 Claude recibe el contexto del estado actual y detecta si el mensaje del usuario
 confirma que ya tomó la medicación. Si es así, marca esa toma como completada
-y no se enviarán más recordatorios para esa franja del día.
+y no se enviarán más recordatorios para ese dia.
 
 ---
 
