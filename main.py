@@ -17,6 +17,7 @@ from telegram.ext import (
     ContextTypes,
 )
 import anthropic
+from typing import Optional
 
 # ─────────────────────────────────────────────
 # Setup
@@ -49,7 +50,7 @@ MEDICATION_NAME = os.getenv("MEDICATION_NAME", "tus vitaminas y medicación")
 # ─────────────────────────────────────────────
 taken_today: dict[str, bool] = {}          # {"2025-01-01_mañana": True, …}
 conversation_history: list[dict] = []     # Historial para Claude
-registered_chat_id: int | None = None     # Se rellena con /start
+registered_chat_id = None  # type: Optional[int]
 
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
@@ -93,7 +94,7 @@ def build_status_block() -> str:
     return "\n".join(lines)
 
 
-def next_pending_label() -> str | None:
+def next_pending_label() -> Optional[str]:
     """Returns the label of the most recent reminder that is still pending."""
     for _, _, label in REMINDERS:
         if not taken_today.get(today_key(label)):
