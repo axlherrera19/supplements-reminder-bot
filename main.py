@@ -1,4 +1,3 @@
-from typing import Optional
 """
 SupplementsBot - Telegram Medication Reminder Chatbot
 Powered by Claude (Anthropic) + python-telegram-bot + APScheduler
@@ -6,7 +5,8 @@ Powered by Claude (Anthropic) + python-telegram-bot + APScheduler
 
 import os
 import logging
-from datetime import date
+from datetime import datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from dotenv import load_dotenv
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram import Update
@@ -33,13 +33,22 @@ logger = logging.getLogger(__name__)
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = int(os.getenv("CHAT_ID", "0"))          # Fallback chat_id (opcional)
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+REMINDER_TIMEZONE = os.getenv("REMINDER_TIMEZONE", "Europe/Madrid")
+
+try:
+    BOT_TZ = ZoneInfo(REMINDER_TIMEZONE)
+except ZoneInfoNotFoundError:
+    logger.warning(
+        f"Zona horaria inválida '{REMINDER_TIMEZONE}'. Usando Europe/Madrid."
+    )
+    BOT_TZ = ZoneInfo("Europe/Madrid")
 
 # ─────────────────────────────────────────────
 # Horarios de recordatorio (hora, minuto, etiqueta)
 # ─────────────────────────────────────────────
 REMINDERS = [
     (9,  0,  "mañana"),
-    (12, 30,  "mediodía"),
+    (12, 42,  "mediodía"),
     (20, 0,  "noche"),
 ]
 
@@ -83,11 +92,12 @@ El usuario NO verá esta línea; solo la usa el sistema.
 # Helpers
 # ─────────────────────────────────────────────
 def today_key(label: str) -> str:
-    return f"{date.today()}_{label}"
+    local_today = datetime.now(BOT_TZ).date()
+    return f"{local_today}_{label}"
 
 
 def build_status_block() -> str:
-    today = date.today()
+    today = datetime.now(BOT_TZ).date()
     lines = [f"Estado de suplementación de hoy ({today.strftime('%d/%m/%Y')}):"]
     for hour, minute, label in REMINDERS:
         icon = "✅" if taken_today.get(today_key(label)) else "⏳"
@@ -185,7 +195,7 @@ async def cmd_estado(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_resetear(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    today = str(date.today())
+    today = str(datetime.now(BOT_TZ).date())
     keys_cleared = [k for k in taken_today if k.startswith(today)]
     for k in keys_cleared:
         taken_today.pop(k, None)
@@ -293,7 +303,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     # Scheduler
-    scheduler = AsyncIOScheduler()
+    scheduler = AsyncIOScheduler(timezone=BOT_TZ)
     for hour, minute, label in REMINDERS:
         scheduler.add_job(
             send_reminder,
@@ -309,6 +319,7 @@ def main():
         "Scheduler activo. Recordatorios programados: "
         + ", ".join(f"{h:02d}:{m:02d}" for h, m, _ in REMINDERS)
     )
+    logger.info(f"Zona horaria de recordatorios: {BOT_TZ}")
 
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 

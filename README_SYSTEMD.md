@@ -8,6 +8,8 @@ WorkingDirectory=/home/ec2-user/supplements-reminder-bot
 ExecStart=/home/ec2-user/supplements-reminder-bot/venv/bin/python main.py
 Restart=always
 EnvironmentFile=/home/ec2-user/supplements-reminder-bot/.env
+# Opcional, si no la defines en .env:
+# Environment=REMINDER_TIMEZONE=Europe/Madrid
 
 [Install]
 WantedBy=multi-user.target

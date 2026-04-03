@@ -36,7 +36,11 @@ TELEGRAM_TOKEN=tu_token_aqui
 CHAT_ID=tu_chat_id_aqui
 ANTHROPIC_API_KEY=tu_api_key_aqui
 MEDICATION_NAME=vitamina D y omega-3   # Personaliza esto
+REMINDER_TIMEZONE=Europe/Madrid         # Horario de recordatorios (IANA tz)
 ```
+
+Si tu servidor está en UTC (por ejemplo en EC2), deja `REMINDER_TIMEZONE=Europe/Madrid`
+para que las horas de `REMINDERS` se interpreten en horario de España (incluyendo DST).
 
 ### 5. Instalar y ejecutar
 
@@ -72,9 +76,9 @@ python main.py
 
 | Toma | Hora |
 |---|---|
-| 🌅 Mañana | 08:00 |
-| ☀️ Mediodía | 14:00 |
-| 🌙 Noche | 21:00 |
+| 🌅 Mañana | 09:00 |
+| ☀️ Mediodía | 12:30 |
+| 🌙 Noche | 20:00 |
 
 Para cambiarlos, edita la lista `REMINDERS` en `main.py`:
 
