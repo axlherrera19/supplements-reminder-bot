@@ -89,9 +89,9 @@ def today_key(label: str) -> str:
 def build_status_block() -> str:
     today = date.today()
     lines = [f"Estado de suplementación de hoy ({today.strftime('%d/%m/%Y')}):"]
-    for _, _, label in REMINDERS:
+    for hour, minute, label in REMINDERS:
         icon = "✅" if taken_today.get(today_key(label)) else "⏳"
-        lines.append(f"  {icon} {label.capitalize()}")
+        lines.append(f"  {icon} {label.capitalize()} ({hour:02d}:{minute:02d})")
     return "\n".join(lines)
 
 
