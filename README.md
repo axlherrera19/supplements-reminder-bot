@@ -1,4 +1,4 @@
-# 💊 MediBot — Recordatorio de medicación con IA
+# 💊 SupplementsBot — Recordatorio de medicación con IA
 
 Bot de Telegram impulsado por Claude (Anthropic) que te recuerda tomar tu medicación
 o vitaminas **2-3 veces al día** y entiende cuando le confirmas que ya lo has hecho.
@@ -121,5 +121,5 @@ o simplemente Docker:
 
 ```bash
 # Con nohup (quick & dirty)
-nohup python main.py > medibot.log 2>&1 &
+nohup python main.py > supplements_bot.log 2>&1 &
 ```
