@@ -27,6 +27,12 @@ sudo systemctl start supplements-bot
 # 5. Verificar que está corriendo
 sudo systemctl status supplements-bot
 
+# -. Reiniciar el servicio
+sudo systemctl restart supplements-bot
+
+# -. Parar el servicio
+sudo systemctl stop supplements-bot
+
 
 # Ver los logs en directo
 sudo journalctl -u supplements-bot -f
