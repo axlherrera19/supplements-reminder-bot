@@ -1,3 +1,4 @@
+from typing import Optional
 """
 SupplementsBot - Telegram Medication Reminder Chatbot
 Powered by Claude (Anthropic) + python-telegram-bot + APScheduler
@@ -102,7 +103,7 @@ def next_pending_label() -> Optional[str]:
     return None
 
 
-def normalize_label(raw_label: str) -> str | None:
+def normalize_label(raw_label: str) -> Optional[str]:
     aliases = {
         "manana": "mañana",
         "mañana": "mañana",
