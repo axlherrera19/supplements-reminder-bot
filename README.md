@@ -1,4 +1,4 @@
-# 💊 SupplementsBot — Recordatorio de medicación con IA
+# 💊 SuplementaBot — Recordatorio de medicación con IA
 
 Bot de Telegram impulsado por Claude (Anthropic) que te recuerda tomar tu medicación
 o vitaminas **2-3 veces al día** y entiende cuando le confirmas que ya lo has hecho.

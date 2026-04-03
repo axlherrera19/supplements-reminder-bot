@@ -1,5 +1,5 @@
 """
-SupplementsBot - Telegram Medication Reminder Chatbot
+SuplementaBot - Telegram Medication Reminder Chatbot
 Powered by Claude (Anthropic) + python-telegram-bot + APScheduler
 """
 
@@ -152,7 +152,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{h:02d}:{m:02d} ({l})" for h, m, l in REMINDERS
     )
     welcome = (
-        f"👋 ¡Hola! Soy SupplementsBot, tu recordatorio de {MEDICATION_NAME}.\n\n"
+        f"👋 ¡Hola! Soy SuplementaBot, tu recordatorio de {MEDICATION_NAME}.\n\n"
         f"⏰ Te avisaré a las: {times_str}\n"
         "Si no confirmas, te reenviaré el aviso en la siguiente hora programada.\n\n"
         "Cuando recibas un aviso, escríbeme algo como:\n"
@@ -181,7 +181,7 @@ async def cmd_resetear(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_ayuda(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🤖 SupplementsBot — Ayuda\n\n"
+        "🤖 SuplementaBot — Ayuda\n\n"
         "/start — Registrarte y ver el resumen\n"
         "/estado — Estado de tus tomas de hoy\n"
         "/resetear — Borrar confirmaciones de hoy\n"
