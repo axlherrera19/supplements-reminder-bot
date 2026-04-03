@@ -7,6 +7,7 @@ import os
 import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+import claude_service
 from dotenv import load_dotenv
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram import Update
@@ -17,7 +18,7 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
-import anthropic
+
 from typing import Optional
 from reminders import REMINDERS
 
@@ -31,9 +32,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = int(os.getenv("CHAT_ID", "0"))          # Fallback chat_id (opcional)
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 REMINDER_TIMEZONE = os.getenv("REMINDER_TIMEZONE", "Europe/Madrid")
 
 try:
@@ -57,31 +58,6 @@ MEDICATION_NAME = os.getenv("MEDICATION_NAME", "tus vitaminas y medicación")
 dose_taken: dict[str, str] = {}            # {"2025-01-01": "09:32"} — hora de confirmación
 conversation_history: list[dict] = []     # Historial para Claude
 registered_chat_id = None  # type: Optional[int]
-
-client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-
-# ─────────────────────────────────────────────
-# Prompts de sistema
-# ─────────────────────────────────────────────
-SYSTEM_BASE = f"""Eres SupplementsBot, un asistente que ayuda al usuario \
-a recordar tomar {MEDICATION_NAME}.
-
-Normas:
-- Habla siempre en español, con tono breve.
-- Usa emojis con moderación (1-2 por mensaje).
-- Nunca des consejos médicos; solo recordatorios.
-- Es una única toma diaria. Si el usuario la confirma, celebra con entusiasmo.
-- Una vez confirmada la toma, ya no quedará ningún recordatorio pendiente ese día.
-- Si pregunta algo médico, indícale que consulte a su médico."""
-
-SYSTEM_CONFIRM = """
-DETECCIÓN DE CONFIRMACIÓN (solo para tu procesamiento interno):
-Si el mensaje del usuario indica claramente que YA tomó el suplemento (frases como
-"ya lo tomé", "hecho", "listo", "sí", "tomado", "me lo he tomado", "done", etc.),
-añade al final de tu respuesta (en una línea nueva) exactamente:
-__CONFIRMADO__
-El usuario NO verá esta línea; solo la usa el sistema.
-"""
 
 
 # ─────────────────────────────────────────────
@@ -159,20 +135,7 @@ async def send_reminder(app: Application, label: str, force: bool = False):
         logger.warning("No hay chat_id registrado todavía. Envía /start al bot.")
         return
 
-    # Claude genera el texto del recordatorio
-    response = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=150,
-        system=SYSTEM_BASE,
-        messages=[{
-            "role": "user",
-            "content": (
-                f"Genera un recordatorio breve (máx. 2 frases) y motivador para que "
-                f"el usuario tome {MEDICATION_NAME} en la toma de la {label}."
-            ),
-        }],
-    )
-    text = response.content[0].text.strip()
+    text = claude_service.generate_reminder(label)
     await app.bot.send_message(chat_id=chat_id, text=text)
     logger.info(f"Recordatorio enviado → {label}{' (prueba)' if force else ''}")
 
@@ -255,24 +218,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Añadir al historial
     conversation_history.append({"role": "user", "content": user_text})
     trim_history()
-
-    # Construir sistema completo con contexto actual
-    system_full = (
-        SYSTEM_BASE
-        + "\n\n"
-        + build_status_block()
-        + "\n"
-        + SYSTEM_CONFIRM
-    )
-
-    response = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=300,
-        system=system_full,
-        messages=conversation_history,
-    )
-
-    raw = response.content[0].text
+    
+    raw = claude_service.process_user_message(conversation_history, build_status_block())
 
     # Detectar confirmación oculta
     if "__CONFIRMADO__" in raw:
