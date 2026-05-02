@@ -17,12 +17,3 @@ Normas:
 - Una vez confirmada la toma, ya no quedará ningún recordatorio pendiente ese día.
 - Si pregunta algo médico, indícale que consulte a su médico."""
 
-SYSTEM_CONFIRM = """
-DETECCIÓN DE CONFIRMACIÓN (solo para tu procesamiento interno):
-Si el mensaje del usuario indica claramente que YA tomó el suplemento (frases como
-"ya lo tomé", "hecho", "listo", "sí", "tomado", "me lo he tomado", "done", etc.),
-añade al final de tu respuesta (en una línea nueva) exactamente:
-__CONFIRMADO__
-El usuario NO verá esta línea; solo la usa el sistema.
-"""
-

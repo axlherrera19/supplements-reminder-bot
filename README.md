@@ -3,6 +3,20 @@
 Bot de Telegram impulsado por Claude (Anthropic) que te recuerda tomar tu medicación
 o vitaminas **2-3 veces al día** y entiende cuando le confirmas que ya lo has hecho.
 
+## ✅ Cambio relevante (mayo 2026)
+
+Se ha reforzado la lógica para evitar falsos positivos y estados inconsistentes:
+
+- La confirmación de toma ahora se detecta en backend con reglas locales (no depende de una marca oculta en la respuesta del modelo).
+- El estado diario ya no vive solo en memoria: se persiste en disco en un archivo JSON.
+- `/estado` y el envío/omisión de recordatorios usan la misma fuente de estado persistido.
+
+Con esto se corrigen estos síntomas:
+
+- Mensajes tipo "ya habías confirmado" cuando realmente no se había confirmado.
+- Nuevos recordatorios después de haber confirmado la toma.
+- `/estado` mostrando pendiente pese a haber confirmado.
+
 ---
 
 ## 🚀 Configuración en 5 pasos
@@ -37,6 +51,7 @@ CHAT_ID=tu_chat_id_aqui
 ANTHROPIC_API_KEY=tu_api_key_aqui
 MEDICATION_NAME=vitamina D y omega-3   # Personaliza esto
 REMINDER_TIMEZONE=Europe/Madrid         # Horario de recordatorios (IANA tz)
+STATE_FILE=bot_state.json               # Archivo de estado persistido
 ```
 
 Si tu servidor está en UTC (por ejemplo en EC2), deja `REMINDER_TIMEZONE=Europe/Madrid`
@@ -102,20 +117,25 @@ main.py
     ├── /start     ──► registra chat_id
     ├── /estado    ──► muestra tomas de hoy
     ├── /resetear  ──► borra estado del día
-    └── handle_message() ──► Claude procesa + detecta confirmación
+    └── handle_message() ──► detector local confirma toma + Claude conversa
 ```
 
 **Lógica de confirmación:**
-Claude recibe el contexto del estado actual y detecta si el mensaje del usuario
-confirma que ya tomó la medicación. Si es así, marca esa toma como completada
-y no se enviarán más recordatorios para ese dia.
+La confirmación de toma se decide en backend con reglas locales sobre el texto
+del usuario (por ejemplo: "ya lo tomé", "hecho", "listo"). Si se confirma,
+se marca la dosis del día y no se envían más recordatorios ese día.
+
+Claude sigue generando recordatorios y conversación, pero ya no decide el estado
+de confirmación del sistema.
 
 ---
 
 ## 🔒 Notas de seguridad
 
-- El estado se guarda **en memoria** (se pierde al reiniciar). Para producción,
-  usa una base de datos (SQLite, Redis, etc.).
+- El estado se guarda en `STATE_FILE` (por defecto `bot_state.json`).
+- Si reinicias el proceso en la misma máquina y el archivo existe, el estado se conserva.
+- Si ejecutas en Docker/ECS/EC2 con reemplazo de contenedor/instancia sin volumen persistente,
+  el estado se perderá. En ese caso, monta un volumen o usa SQLite/Redis.
 - Añade `.env` a tu `.gitignore` — nunca subas tus tokens a Git.
 
 ## 🐳 Ejecución continua (opcional)

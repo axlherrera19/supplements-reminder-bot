@@ -5,6 +5,8 @@ Powered by Claude (Anthropic) + python-telegram-bot + APScheduler
 
 import os
 import logging
+import json
+import unicodedata
 from datetime import datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import claude_service
@@ -51,6 +53,7 @@ except ZoneInfoNotFoundError:
 
 # Medicación/vitaminas que debe tomar el usuario — personaliza aquí
 MEDICATION_NAME = os.getenv("MEDICATION_NAME", "tus vitaminas y medicación")
+STATE_FILE = os.getenv("STATE_FILE", "bot_state.json")
 
 # ─────────────────────────────────────────────
 # Estado global (en memoria — suficiente para prototipo)
@@ -58,6 +61,40 @@ MEDICATION_NAME = os.getenv("MEDICATION_NAME", "tus vitaminas y medicación")
 dose_taken: dict[str, str] = {}            # {"2025-01-01": "09:32"} — hora de confirmación
 conversation_history: list[dict] = []     # Historial para Claude
 registered_chat_id = None  # type: Optional[int]
+
+
+def save_state() -> None:
+    state = {
+        "dose_taken": dose_taken,
+        "registered_chat_id": registered_chat_id,
+    }
+    try:
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(state, f, ensure_ascii=False)
+    except OSError as e:
+        logger.warning(f"No se pudo guardar el estado en {STATE_FILE}: {e}")
+
+
+def load_state() -> None:
+    global registered_chat_id
+    if not os.path.exists(STATE_FILE):
+        return
+    try:
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
+            state = json.load(f)
+        if isinstance(state.get("dose_taken"), dict):
+            dose_taken.update(
+                {
+                    str(k): str(v)
+                    for k, v in state["dose_taken"].items()
+                    if isinstance(k, str) and isinstance(v, str)
+                }
+            )
+        saved_chat_id = state.get("registered_chat_id")
+        if isinstance(saved_chat_id, int):
+            registered_chat_id = saved_chat_id
+    except (OSError, json.JSONDecodeError) as e:
+        logger.warning(f"No se pudo cargar el estado desde {STATE_FILE}: {e}")
 
 
 # ─────────────────────────────────────────────
@@ -78,6 +115,48 @@ def get_dose_taken_time() -> Optional[str]:
 
 def mark_dose_taken() -> None:
     dose_taken[today_dose_key()] = datetime.now(BOT_TZ).strftime("%H:%M")
+    save_state()
+
+
+def normalize_text(text: str) -> str:
+    text = text.lower().strip()
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+    return text
+
+
+def user_confirms_dose(text: str) -> bool:
+    normalized = normalize_text(text)
+
+    negative_markers = [
+        "no la he tomado",
+        "no lo he tomado",
+        "aun no",
+        "todavia no",
+        "aun no la tomo",
+        "aun no lo tomo",
+        "todavia no la tomo",
+        "todavia no lo tomo",
+    ]
+    if any(marker in normalized for marker in negative_markers):
+        return False
+
+    confirmation_phrases = [
+        "ya lo tome",
+        "ya la tome",
+        "me lo tome",
+        "me la tome",
+        "lo he tomado",
+        "la he tomado",
+        "tomado",
+        "hecho",
+        "listo",
+        "ok tomado",
+        "dosis tomada",
+        "ya esta",
+        "done",
+    ]
+    return any(phrase in normalized for phrase in confirmation_phrases)
 
 
 def build_status_block() -> str:
@@ -146,6 +225,7 @@ async def send_reminder(app: Application, label: str, force: bool = False):
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global registered_chat_id
     registered_chat_id = update.effective_chat.id
+    save_state()
     logger.info(f"/start recibido. chat_id={registered_chat_id}")
 
     times_str = " | ".join(
@@ -175,6 +255,8 @@ async def cmd_estado(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_resetear(update: Update, context: ContextTypes.DEFAULT_TYPE):
     was_taken = dose_taken.pop(today_dose_key(), None)
+    if was_taken:
+        save_state()
     msg = "🔄 Toma del día reseteada." if was_taken else "No había ninguna toma registrada hoy."
     await update.message.reply_text(msg)
 
@@ -214,20 +296,33 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_text = update.message.text
     registered_chat_id = update.effective_chat.id
+    save_state()
+
+    # Confirmación determinista local para no depender del formato del modelo.
+    if user_confirms_dose(user_text):
+        if is_dose_taken():
+            taken_time = get_dose_taken_time()
+            already_msg = (
+                f"✅ Ya la habías confirmado hoy (a las {taken_time}). "
+                "No te volveré a recordar la toma de hoy."
+            )
+            await update.message.reply_text(already_msg)
+            return
+
+        mark_dose_taken()
+        logger.info("Toma diaria confirmada por detector local.")
+        await update.message.reply_text(
+            "🎉 Perfecto, toma de hoy confirmada. "
+            "No te enviaré más recordatorios hasta mañana."
+        )
+        return
 
     # Añadir al historial
     conversation_history.append({"role": "user", "content": user_text})
     trim_history()
     
     raw = claude_service.process_user_message(conversation_history, build_status_block())
-
-    # Detectar confirmación oculta
-    if "__CONFIRMADO__" in raw:
-        clean_reply = raw.split("__CONFIRMADO__")[0].strip()
-        mark_dose_taken()
-        logger.info("Toma diaria confirmada.")
-    else:
-        clean_reply = raw.strip()
+    clean_reply = raw.strip()
 
     conversation_history.append({"role": "assistant", "content": clean_reply})
     await update.message.reply_text(clean_reply)
@@ -241,6 +336,8 @@ def main():
         raise ValueError("Falta TELEGRAM_TOKEN en el archivo .env")
     if not ANTHROPIC_API_KEY:
         raise ValueError("Falta ANTHROPIC_API_KEY en el archivo .env")
+
+    load_state()
 
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
@@ -270,6 +367,7 @@ def main():
         + ", ".join(f"{h:02d}:{m:02d}" for h, m, _ in REMINDERS)
     )
     logger.info(f"Zona horaria de recordatorios: {BOT_TZ}")
+    logger.info(f"Estado persistido en: {STATE_FILE}")
 
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 

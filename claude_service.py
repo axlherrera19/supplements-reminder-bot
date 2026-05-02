@@ -3,7 +3,7 @@ import os
 import logging
 from dotenv import load_dotenv
 
-from prompts import SYSTEM_BASE, SYSTEM_CONFIRM, MEDICATION_NAME
+from prompts import SYSTEM_BASE, MEDICATION_NAME
 
 load_dotenv()
 logging.basicConfig(
@@ -40,8 +40,6 @@ def process_user_message(conversation_history: list[dict], status_block: str) ->
         SYSTEM_BASE
         + "\n\n"
         + status_block
-        + "\n"
-        + SYSTEM_CONFIRM
     )
 
     response = client.messages.create(
